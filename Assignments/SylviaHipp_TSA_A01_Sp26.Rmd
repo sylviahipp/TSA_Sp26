@@ -1,7 +1,7 @@
 ---
 title: "ENV 797 - Time Series Analysis for Energy and Environment Applications | Spring 2026"
 subtitle: "Assignment 1 - Due date 01/15/26"
-author: "Luana"
+author: "Sylvia Hipp"
 output: pdf_document
 geometry: margin=2.54cm
 ---
