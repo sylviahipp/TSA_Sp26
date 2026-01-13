@@ -19,7 +19,7 @@ When you have completed the assignment, **Knit** the text and code into a single
 
 Q1. What are your previous experiences with time series analysis, R, and Git? 
 
-> Answer: None
+> Answer: My only experience with time series analysis was from the time series module covered in ENV872 last semester. Outside of ENV872, I have R experience from undergraduate coursework and three years of work experience using R weekly. I also have some additional Git experience from the same job.  
 
 
 Q2. For this part we just want to see the path to your R project. No need to do anything. The output will be automatically generated once you knit you file. 
@@ -32,4 +32,4 @@ getwd()
 
 Q3. Copy and paste the link to your forked repository on Github. It should looks like this: "https://github.com/lmmlima/TSA_Sp26"
 
-> Answer: 
+> Answer: https://github.com/sylviahipp/TSA_Sp26/
