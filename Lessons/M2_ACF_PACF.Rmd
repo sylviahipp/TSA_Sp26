@@ -23,6 +23,7 @@ It's useful to designate one code chunk to load packages on the beginning of the
 library(lubridate)
 library(ggplot2)
 library(forecast) #added for Acf and Pacf functions
+library(tidyverse)
 
 ```
 
@@ -73,12 +74,18 @@ The data sets we will work with will be indexed by time, remember we are doing T
 
 ```{r}
 #using package lubridate
-my_date <- paste(raw_inflow_data[,1],raw_inflow_data[,2],sep="-")
-my_date <- my(my_date)  #function my from package lubridate
-head(my_date)
-#add that to inflow_data 
-inflow_data <- cbind(my_date,raw_inflow_data[,3:5]) #cbind stands for column bind
-head(inflow_data)
+# my_date <- paste(raw_inflow_data[,1],raw_inflow_data[,2],sep="-")
+# my_date <- my(my_date)  #function my from package lubridate
+# head(my_date)
+# #add that to inflow_data 
+# inflow_data <- cbind(my_date,raw_inflow_data[,3:5]) #cbind stands for column bind
+# head(inflow_data)
+
+inflow_data <- raw_inflow_data %>% 
+  tibble() %>% 
+  mutate(my_date = my(paste(Month, Year, "-"))) %>% 
+  select(-Month, -Year) %>% 
+  relocate(my_date) 
 
 ```
 
@@ -88,9 +95,17 @@ A plot of observed values over time is the first thing you do to start understan
 
 ```{r}
 #using package ggplot2
-ggplot()
+ggplot(inflow_data) + 
+  geom_line(aes(x = my_date, y = HP1))
 
 #adding two time series to the same plot
+inflow_data %>% 
+  pivot_longer(cols = c(HP1:HP3), 
+               names_to = "reservoir", 
+               values_to = "inflow") %>% 
+  filter(reservoir != "HP1") %>%   # show just two of the reservoirs on one plot
+  ggplot() + 
+  geom_line(aes(x = my_date, y = inflow, color = reservoir))
 
 ```
 
