@@ -4,6 +4,8 @@ subtitle: "Assignment 2 - Due date 01/27/26"
 author: "Sylvia Hipp"
 output: pdf_document
 geometry: margin=2.54cm
+editor_options: 
+  chunk_output_type: console
 ---
 
 ## Submission Instructions
@@ -22,6 +24,12 @@ R packages needed for this assignment:"forecast","tseries", and "dplyr". Install
 
 ```{r}
 #Load/install required package here
+library(forecast)
+library(tseries)
+library(dplyr)
+
+# additional packages
+library(readxl)
 
 ```
 
@@ -32,7 +40,24 @@ Consider the data provided in the spreadsheet "Table_10.1_Renewable_Energy_Produ
 
 ```{r}
 #Importing data set
+filepath <- "./Data/Table_10.1_Renewable_Energy_Production_and_Consumption_by_Source.xlsx"
 
+# read data
+energy_data_raw <- read_excel(path = filepath,
+                              sheet = "Monthly Data",
+                              skip = 12, 
+                              col_names = FALSE) %>% 
+  tibble()
+
+# read row with column names
+energy_data_colnames <- read_excel(path = filepath, 
+                                   sheet = "Monthly Data",
+                                   skip = 10, 
+                                   col_names = FALSE, 
+                                   n_max = 1)
+
+# assign column names
+colnames(energy_data_raw) <- energy_data_colnames
 ```
 
 
@@ -40,6 +65,11 @@ Consider the data provided in the spreadsheet "Table_10.1_Renewable_Energy_Produ
 You will work only with the following columns: Total Biomass Energy Production, Total Renewable Energy Production, Hydroelectric Power Consumption. Create a data frame structure with these three time series only. Use the command head() to verify your data.
 
 ```{r}
+df <- energy_data_raw %>% 
+  janitor::clean_names() %>%     # for easier column names to work with
+  select(month, c(total_biomass_energy_production:hydroelectric_power_consumption))
+
+head(df)
 
 ```
 
@@ -48,6 +78,8 @@ You will work only with the following columns: Total Biomass Energy Production, 
 Transform your data frame in a time series object and specify the starting point and frequency of the time series using the function ts().
 
 ```{r}
+# can you have a time series object with multiple values? 
+
 
 ```
 
