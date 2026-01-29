@@ -2,6 +2,8 @@
 title: "M3: Class Exercise on Trend and Season"
 author: "Luana Lima"
 output: pdf_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ## Setting R code chunk options
@@ -85,7 +87,7 @@ The initial plots showed that we have zeros in the end of the data set. It could
 
 ```{r}
 #check the final obs on data 
-tail(inflow_data)
+tail(inflow_data) 
 
 
 ```
@@ -109,7 +111,12 @@ Fixed!
 Many of the functions we will use require a time series object. You can transform your data in a time series using the function *ts()*. 
 
 ```{r}
-ts_inflow_data <- ts(inflow_data[,2:(2+nhydro-1)],frequency=12) 
+# exclude date column at the beginning
+ts_inflow_data <- ts(inflow_data[,2:(2+nhydro-1)],
+                     frequency=12, 
+                     start = c(1931, 1)) 
+# add date information with 'start'
+
 #note that we are only transforming columns with inflow data, not the date columns  #start=my_date[1],end=my_date[nobs],
 head(ts_inflow_data,15)
 ```
@@ -121,6 +128,7 @@ Let's use functions Acf() and Pacf() from package "forecast".
 
 ```{r acf}
 #Acf and Pacf for HP1
+# for loop for each of reservoirs in the dataset
 for(i in 1:nhydro){
   par(mfrow=c(1,2))  #place plot side by side
   Acf(ts_inflow_data[,i],lag.max=40,main=paste("Inflows HP",i,sep="")) 
@@ -137,23 +145,63 @@ Let's identify and remove trend component. You start by fitting a linear model t
 
 ```{r}
 #Create vector t
+# t <- seq(from = min(inflow_data$my_date), 
+#          to = max(inflow_data$my_date), 
+#          by = "month")
+# can use date series or just index of obs.
+t <- c(1:nobs)
 
-
+# can do for loop
+# for now: choose one HP to work with
+iHP <- 4
 
 #Fit a linear trend to TS of iHP
+# lm takes data frame, not TS object
+linear_trend_model <- lm(inflow_data[,iHP+1] ~ t)
+summary(linear_trend_model)  # p-value is significant, there is a significant trend
 
+
+# use regression coefficient to de-trend
+# store coefficients in variables
+beta0 <- as.numeric(linear_trend_model$coefficients[1])  # first term is intercept
+
+beta1 <- as.numeric(linear_trend_model$coefficients[2]) # second term is slop
+
+# visualization
+ggplot(inflow_data, aes(x=my_date, y=inflow_data[,iHP+1])) + 
+  geom_line(color="blue") + 
+  geom_smooth(method = lm, color = "red")
 
 ```
 
 
 ```{r}
 #remove the trend from series
+# i.e. subtract red line in plot shown above
 
+# creates numeric vector
+detrend_inflow_data <- inflow_data[,iHP+1] - (beta0 + beta1*t)
 
+# transform to ts
+ts_detrend_inflow <- ts(detrend_inflow_data, 
+                        frequency = 12,
+                        start = c(1931, 1))
 
+autoplot(ts_inflow_data[, iHP]) + 
+  autolayer(ts_detrend_inflow)
 ```
 
 Note that blue line is our original series, red line is our trend, green line is our original series minus the trend or in other words the detrended series. And in orange is the trend line for the detrended series which has slope 0 meaning we were able to effectively eliminate the trend with a linear model.
+
+```{r}
+## ACF and PACF of the detrended series
+
+par(mfrow=c(1,2))
+Acf(ts_inflow_data[, iHP], lag.max=40)
+Acf(ts_detrend_inflow, lag.max=40)
+# see that trend was having an impact on the temporal behavior / dependence of the series 
+
+```
 
 
 ## Seasonal Component
