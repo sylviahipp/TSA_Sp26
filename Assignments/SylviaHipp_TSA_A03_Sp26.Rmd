@@ -1,16 +1,12 @@
 ---
 title: "ENV 790.30 - Time Series Analysis for Energy Data | Spring 2025"
 subtitle: "Assignment 3 - Due date 02/03/26"
-author: "Student Name"
+author: "Sylvia Hipp"
 output: pdf_document
 geometry: margin=2.54cm
 editor_options: 
   chunk_output_type: console
 ---
-
-```{r}
-
-```
 
 ## Directions
 
@@ -38,16 +34,75 @@ Create a data frame structure with these two time series only.
 
 R packages needed for this assignment:"forecast","tseries", and "Kendall". Install these packages, if you haven't done yet. Do not forget to load them before running your script, since they are NOT default packages.\\
 
-```{r}
+```{r message=FALSE}
 #Load/install required package here
+library(forecast)
+library(tseries)
+library(dplyr)
+library(Kendall)
 
+# additional packages
+library(readxl)
+library(lubridate)
+library(ggplot2)
+library(glue)
 ```
+
+Read in the raw data
+```{r}
+filepath <- "./Data/Table_10.1_Renewable_Energy_Production_and_Consumption_by_Source.xlsx"
+
+# load the data
+energy_data_raw <- read_excel(filepath, skip = 11)
+
+# read in column names
+colnames <- read_excel(filepath, skip = 10) %>% names()
+names(energy_data_raw) <- colnames  # assign colnames to raw dataset
+```
+
+Basic data processing 
+```{r}
+# clean up names and select columns of interest
+energy_data <- energy_data_raw %>% 
+  janitor::clean_names() %>%   
+  select(month, total_renewable_energy_production, hydroelectric_power_consumption)
+```
+
 
 ##Trend Component
 
 ### Q1
 
 For each series (Total Renewable Production and Hydroelectric Consumption) create three plots arranged in a row (side-by-side): (1) time series plot, (2) ACF, (3) PACF. Use cowplot::plot_grid() to place them in a grid.
+
+```{r}
+create_plots <- function(series, description){
+  time_series_plot <- ggplot(energy_data, 
+                             aes(x = month, y = series)) + 
+    geom_line() + 
+    scale_x_date(expand = c(0,0)) +   # compress x axis
+    theme_classic() + 
+    labs(x = "Month", 
+         y = glue("Total {description} (Trillion Btu)"), 
+         title = glue("Time Series of {description} (1973–2025)")) 
+  
+  #cowplot::plot_grid(time_series_plot, Acf(series), Pacf(series))
+  time_series_plot
+}
+
+
+# Series 1: Renewable Production
+create_plots(energy_data$total_renewable_energy_production, 
+             "Renewable Energy Production")
+
+# Series 2: Hydroelectric Consumption
+create_plots(energy_data$hydroelectric_power_consumption, 
+             "Hydroelectric Power Consumption")
+
+test <- Acf(energy_data$total_renewable_energy_production)
+test
+```
+
 
 ### Q2
 
@@ -56,6 +111,17 @@ From the plot in Q1, do the series Total Renewable Energy Production and Hydroel
 ### Q3
 
 Use the *lm()* function to fit a linear trend to the two time series. Ask R to print the summary of the regression. Interpret the regression output, i.e., slope and intercept. Save the regression coefficients for further analysis.
+
+```{r}
+# Total Renewable Energy Production
+linear_model_renewable <- lm(total_renewable_energy_production~month, energy_data)
+summary(linear_model_renewable)
+
+# Hydroelectric Power Consumption
+linear_model_hydro <- lm(hydroelectric_power_consumption~month, energy_data)
+summary(linear_model_hydro)
+```
+
 
 ### Q4
 
