@@ -114,14 +114,14 @@ create_plots(energy_data$hydroelectric_power_consumption,
 
 From the plot in Q1, do the series Total Renewable Energy Production and Hydroelectric Power Consumption appear to have a trend? If yes, what kind of trend?
 
-> Answer: Renewable Energy Production appears to have a strong positive linear trend over time, although this trend seems to stall over the period 1985–200. Hydroelectric Power Consumption does not not appear to have a strong trend. There may be a slight negative trend, but this is difficult to tell apart from the seasonal variation. 
+> Answer: Renewable Energy Production appears to have a strong positive linear trend over time, although this trend seems to stall over the period 1985–2000. Hydroelectric Power Consumption does not not appear to have a strong trend. There may be a slight negative trend, but this is difficult to tell apart from the seasonal variation. 
 
 ### Q3
 
 Use the *lm()* function to fit a linear trend to the two time series. Ask R to print the summary of the regression. Interpret the regression output, i.e., slope and intercept. Save the regression coefficients for further analysis.
 
 ```{r}
-t <- c(1:nrow(energy_data))
+t <- c(1:nrow(energy_data))  # time variable for linear model
 
 # Total Renewable Energy Production
 linear_model_renewable <- lm(energy_data$total_renewable_energy_production~t)
@@ -141,7 +141,7 @@ hydro_b1 <- linear_model_hydro$coefficients[2] %>% as.numeric()
 
 ```
 
-> Interpretation: The linear trend fit to the renewable energy production data is positive with an adjusted r-squared value of 0.8201, meaning 82% of variation in this series can be explained by the linear trend over time. These results are significant with a p-value less than 0.05. The linear trend fit to the hydroelectric consumption data is negative with an adjusted r-squared value of 0.02343, meaning only 2.34% of variation in the data can be explained by this trend. This trend is significant with a p-value < 0.05. 
+> Interpretation: The linear trend fit to the renewable energy production data is positive with an adjusted r-squared value of 0.8201, meaning 82% of variation in this series can be explained by the linear trend over time. These results are significant with a p-value less than 0.05. The linear trend fit to the hydroelectric consumption data is negative with an adjusted r-squared value of 0.02343, meaning only 2.34% of variation in the data can be explained by this trend, but that a trend is present and significant with a p-value < 0.05. 
 
 ### Q4
 
@@ -204,7 +204,7 @@ hydro_detrended[[2]]   # show plot
 Plot ACF and PACF for the detrended series and compare with the plots from Q1. You may use plot_grid() again to get them side by side to make it easier to compare. Did the plots change? How?
 
 ```{r}
-plot_detrend_acf <- function(series, detrend_series, description){
+plot_detrend_acf <- function(series, detrend_series, description, trend){
   plot_acf <- ggAcf(series) + 
     theme_classic() + 
     labs(title = glue("ACF of {description}"))
@@ -215,11 +215,11 @@ plot_detrend_acf <- function(series, detrend_series, description){
   
   plot_acf_detrend <- ggAcf(detrend_series) + 
     theme_classic() + 
-    labs(title = glue("ACF of Detrended {description}"))
+    labs(title = glue("ACF of {trend} {description}"))
   
   plot_pacf_detrend <- ggPacf(detrend_series) + 
     theme_classic() + 
-    labs(title = glue("PACF of Detrended {description}"))
+    labs(title = glue("PACF of {trend} {description}"))
   
   cowplot::plot_grid(plot_acf, plot_pacf, plot_acf_detrend, plot_pacf_detrend, 
             ncol = 2, nrow = 2)
@@ -227,12 +227,12 @@ plot_detrend_acf <- function(series, detrend_series, description){
 # Renewable Energy Production
 plot_detrend_acf(energy_data$total_renewable_energy_production, 
                  renewable_detrend_series, 
-                 "Renewable Energy Production")
+                 "Renewable\nEnergy Production", "Detrended")
 
 # Hydroelectric Power Consumption
 plot_detrend_acf(energy_data$hydroelectric_power_consumption, 
                  hydro_detrend_series, 
-                 "Hydroelectric Power Consumption")
+                 "Hydroelectric\nPower Consumption", "Detrended")
 ```
 
 > Answer: There is a slight change in the ACF and PACF for the renewable energy production detrended series. For these data, the seasonal component is a bit more pronounced in the ACF and PACF of the detrended series where there appears to be a slight spike in autocorrelation at around 12 lags. There appears to be no change in the ACF and PACF for the detrended hydroelectric power consumption series. 
@@ -273,12 +273,72 @@ hydro_seasonal_model <- lm(hydro_ts ~ dummies)
 summary(hydro_seasonal_model)
 ```
 
-> Answer
+> Answer: The seasonal model of the renewable energy production series has an adjusted r-squared value of -0.009 and a p-value of 0.9223. My understanding of a negative value for adjust r-squared is that the seasonal dummies are an irrelevant predictor and that the model fits the data worse than a simple horizontal line at the mean. The seasonal model of the hydroelectric power consumption has an adjusted r-squared value of 0.4621 and a p-value < 0.05, meaning the model is significant and can account for 46.2% of variation in the data. This is in-line with my assessment above that there is no seasonal component to renewable production, but there is a strong seasonal component to hydroelectric consumption. 
 
 ### Q8
 
 Use the regression coefficients from Q7 to deseason the series. Plot the deseason series and compare with the plots from part Q1. Did anything change?
 
+```{r}
+deseason_series <- function(series, seasonal_model, description=""){
+  beta_int <- seasonal_model$coefficients[1]   # intercept term
+  beta_coeff <- seasonal_model$coefficients[2:12]   # all other coefficients
+  #seasonal_component <- beta_int + (coefficients*dummies)
+  
+  seasonal_component <- array(0, length(series))  # array of zeros
+  for (i in 1:length(series)){
+    seasonal_component[i] <- beta_int + (beta_coeff%*%dummies[i,])  # linear product 
+  }
+  
+  # subtract seasonal component from series
+  deseasoned_series <- series - seasonal_component
+  
+  # data frame for plotting
+  df_to_plot <- tibble("month" = seq(first(energy_data$month), last(energy_data$month), by = "month"), 
+                       "series" = series, 
+                       "deseasoned_series" = deseasoned_series) %>% 
+    pivot_longer(cols = c("series":"deseasoned_series")) %>%
+    mutate(name = factor(name,
+                         levels = c("series", "deseasoned_series"),
+                         labels = c(glue("Observed {description}"), glue("Deseasoned {description}"))))
+
+  # plot deseasoned series with normal series
+  plot <- ggplot(df_to_plot) +
+    geom_line(aes(x = month, y = value, color = name)) + 
+    theme_classic() + 
+    theme(legend.position = "bottom") + 
+    labs(x = "Month", 
+         y = glue("{description} (Trillion Btu)"), 
+         title = glue("Deseasoned {description}"))
+  
+  return(list(deseasoned_series, plot))
+}
+
+renewable_deseasoned <- deseason_series(energy_data$total_renewable_energy_production,
+                                        renewable_seasonal_model, "Renewable Energy Production")
+renewable_deseasoned[[2]]
+  
+hydro_deseasoned <- deseason_series(energy_data$hydroelectric_power_consumption, 
+                                    hydro_seasonal_model, "Hydroelectric Power Consumption")
+hydro_deseasoned[[2]]
+
+```
+
+> Answer: The above plots compare the time series plot of the observed data to the series after removing the seasonal component. For both de-seasoned series, the mean is now zero. For the renewable energy series, there was not much change to the series except for a slight flattening of some of the fluctuation in the observed data. For the hydroelectric power series, the seasonal up-and-down movement has been removed, and now we only see the overal trending increases/decreases in the observed data. 
+
 ### Q9
 
 Plot ACF and PACF for the deseason series and compare with the plots from Q1. You may use plot_grid() again to get them side by side. Did the plots change? How?
+
+```{r}
+# using function defined above to plot ACF / PACF of deseasoned and observed series
+plot_detrend_acf(energy_data$total_renewable_energy_production, 
+                 renewable_deseasoned[[1]], 
+                 "Renewable\nEnergy Production", "Deseasoned")
+
+plot_detrend_acf(energy_data$hydroelectric_power_consumption, 
+                 hydro_deseasoned[[1]], 
+                 "Hydroelectric\nPower Consumption", "Deseasoned")
+```
+
+> Answer: There is very little change to the ACF of the observed and deseasoned renewable energy production series. You can see some difference in the PACF plot where the PACF is insignificant for almost all lags after the first lag and there is no longer a spike in PACF around 12 lags. There is a greater impact on the ACF/PACF of the hydroelectric series. You no longer see the sinosoidal pattern in the ACF plot and the ACF values for the deseasoned series decay much more rapidly. Almost all PACF values for the deseasoned series are insignificant after the first lag. 
