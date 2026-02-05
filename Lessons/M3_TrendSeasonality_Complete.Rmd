@@ -2,6 +2,8 @@
 title: "M3: Exercise"
 author: "Luana Lima"
 output: pdf_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ## Setting R code chunk options
@@ -134,6 +136,7 @@ for(i in 1:nhydro){
 
 ```
 
+> ACF and PACF for these series don't suggest stochastic trend
 
 ## Trend Component
 
@@ -200,7 +203,7 @@ Pacf(ts_detrend_inflow_data,lag.max=40,main=paste("Inflows HP",i,sep=""))
 
 ```
 
-
+> detrending elimnated some temporal dependence (lower ACF) but did not eliminate it
 
 ## Seasonal Component
 
@@ -258,7 +261,7 @@ Acf(ts_deseason_inflow_data,lag.max=40,main=paste("Inflows HP",iHP,sep=""))
 Pacf(ts_inflow_data[,iHP],lag.max=40,main=paste(" HP",iHP,sep=""))
 Pacf(ts_deseason_inflow_data,lag.max=40,main=paste("HP",iHP,sep=""))
 ```
-
+> eliminated seasonality in both ACF and PACF
 
 ## Let's change the order of the process, i.e, fit seasonal first and then trend
 
@@ -328,7 +331,7 @@ Some test only work for non-seasonal data. So let's create another series with y
 iHP <- 1
 #Group data in yearly steps instances
 inflow_data_matrix <- matrix(ts_inflow_data[,iHP],byrow=FALSE,nrow=12)
-inflow_data_yearly <- colMeans(inflow_data_matrix)
+inflow_data_yearly <- colMeans(inflow_data_matrix)  # calculate yearly averages
 
 library(dplyr)  #move this to package chunk later
 my_year <- c(year(first(inflow_data$my_date)):year(last(inflow_data$my_date)))
@@ -397,4 +400,39 @@ print(adf.test(inflow_data_yearly, alternative = "stationary"))
 ##Exercise
 
 Run the stationarity tests for the other variables HP2, HP3, ...
+
+```{r}
+# HP2
+iHP <- 4
+autoplot(ts_inflow_data[, iHP])
+
+# Seasonal Mann-Kendall (test deterministic)
+seasonal_mk <- Kendall::SeasonalMannKendall(ts_inflow_data[, iHP])
+summary(seasonal_mk)   # p-value < 0.05 --> reject H0 that it's stationary (has deterministic trend)
+
+# more detailed SMK test
+summary(trend::smk.test(ts_inflow_data[, iHP]))  # see significant increasing trend for all seasons
+
+
+## Spearman correlation
+ts_matrix <- matrix(ts_inflow_data[,iHP],byrow=FALSE,nrow=12)
+ts_yearly <- data.frame(my_year, "value" = colMeans(ts_matrix))
+
+ggplot(ts_yearly, aes(x = my_year, y = value)) + 
+  geom_line() + 
+  geom_smooth(method = "lm", color = "blue")  # see increasing value 
+
+cor.test(ts_yearly$value, my_year, method = "spearman")  # rho = 0.758 (positive correlation)
+
+
+## ADF
+# run ADF to make sure the trend we're seeing is not stochastic 
+adf.test(ts_inflow_data[,iHP], alternative = "stationary")  # Reject H0: stationary over unit root
+
+# ADF on yearly series accepts null hypothesis (that unit root is present)
+# in the end: want to accept test results for series you're building model on (monthly data)
+
+```
+
+
 
