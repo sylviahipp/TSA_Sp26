@@ -2,6 +2,8 @@
 title: "M4: Outliers and Missing Data - Inflow Data"
 author: "Luana Lima"
 output: pdf_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ## Setting R code chunk options
@@ -152,15 +154,15 @@ Data is ready!
 ```{r}
 #Generating a box plot by factor where factor is month of the year
 ggplot(df_inflow_random, aes(x=month, y=inflow)) +
-            geom_boxplot()
+  geom_boxplot()
 
 ggplot(df_inflow_random, aes(x=date, y=inflow)) +
-            geom_line() +
-            geom_abline(slope=0,intercept=3*sd_inflow,color="red") +
-            geom_abline(slope=0,intercept=-3*sd_inflow,color="red")
+  geom_line() +
+  geom_abline(slope=0,intercept=3*sd_inflow,color="red") +
+  geom_abline(slope=0,intercept=-3*sd_inflow,color="red")
 
 ggplot(df_inflow_random, aes(y=inflow)) +
-            geom_boxplot() 
+  geom_boxplot() 
 ```
 
 Since we removed the seasonal and trend component, the mean of the random series should be close to zero. Note that from the line plot with the red lines we see that we do have some outliers. The outliers could be due to error collecting the data or an extreme event. Either way, we may want to remove/replace them before fitting a model to our data set to avoid the effect of outliers on our model coefficients. 
@@ -209,9 +211,9 @@ df_inflow_random$inflow <- rm.outlier(df_inflow_random$inflow,fill=TRUE) #using 
 
 #Plot series again and look for more outliers
 ggplot(df_inflow_random, aes(x=date, y=inflow)) +
-            geom_line() +
-            geom_abline(slope=0,intercept=3*sd_inflow,color="red") +
-            geom_abline(slope=0,intercept=-3*sd_inflow,color="red")
+  geom_line() +
+  geom_abline(slope=0,intercept=3*sd_inflow,color="red") +
+  geom_abline(slope=0,intercept=-3*sd_inflow,color="red")
 
 ```
 
@@ -228,7 +230,10 @@ ts_inflow_random <- ts(inflow_random,frequency=12,start=c(1931,1))
 clean_inflow_random <- tsclean(ts_inflow_random)
 
 autoplot(ts_inflow_random,series="Random")+
-  autolayer(clean_inflow_random,series="Cleaned")
+  autolayer(clean_inflow_random,series="Cleaned") + 
+  # ts clean removes all outliers outside of these two limits
+  geom_abline(slope=0,intercept=3*sd_inflow,color="red") +
+  geom_abline(slope=0,intercept=-3*sd_inflow,color="red")
 
 ```
 
@@ -264,12 +269,12 @@ df_inflow_random$inflow <- aux_inflow
 
 #Do the plots again
 ggplot(df_inflow_random, aes(x=date, y=inflow)) +
-            geom_line() +
-            geom_abline(slope=0,intercept=3*sd_inflow,color="red") +
-            geom_abline(slope=0,intercept=-3*sd_inflow,color="red")
+  geom_line() +
+  geom_abline(slope=0,intercept=3*sd_inflow,color="red") +
+  geom_abline(slope=0,intercept=-3*sd_inflow,color="red")
 
 ggplot(df_inflow_random, aes(y=inflow)) +
-            geom_boxplot() 
+  geom_boxplot() 
 
 #Check the data
 summary(df_inflow_random$inflow)
