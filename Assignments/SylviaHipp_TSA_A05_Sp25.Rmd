@@ -160,11 +160,12 @@ wind_ts <- ts(renewables_df$wind_energy_consumption,
 
 # decompose time series 
 solar_ts_decomp <- decompose(solar_ts, type = "additive")
-plot(solar_ts_decomp)
+#plot(solar_ts_decomp)
+autoplot(solar_ts_decomp, main="Additive Decomposition of Solar TS")  # bars give significance of each component
 
 wind_ts_decomp <- decompose(wind_ts, type = "additive")
-plot(wind_ts_decomp)
-
+#plot(wind_ts_decomp)
+autoplot(wind_ts_decomp, main="Additive Decomposition of Wind TS")
 ```
 
 > Answer: For the solar consumption series, there is a clear positive non-linear trend component. The random component appears to still have strong seasonality and trends over time (fluctuations become wider towards the end), which may suggest the presence of a stochastic process. We see the same patterns for the wind consumption series: there is a strong positive trend (that appears slightly more linear), and the random component retains some trend and seasonality. 
@@ -175,10 +176,12 @@ Use the decompose function again but now change the type of the seasonal compone
 
 ```{r}
 solar_ts_decomp_mult <- decompose(solar_ts, type = "multiplicative")
-plot(solar_ts_decomp_mult)
+#plot(solar_ts_decomp_mult)
+autoplot(solar_ts_decomp_mult, main="Multiplicative Decomposition of Solar TS")  # see level shift in residuals - adoption of solar 
 
 wind_ts_decomp_mult <- decompose(wind_ts, type = "multiplicative")
-plot(wind_ts_decomp_mult)
+#plot(wind_ts_decomp_mult)
+autoplot(wind_ts_decomp_mult, main="Multiplicative Decomposition of Wind TS") 
 ```
 
 > Using the multiplicative seasonal component did a better job at removing the seasonal component, where the random component of both decomposed series appears more like a truly random series. However, we still see some trend in both series where the random component is large at the start and becomes very small as time goes on. There also remains some seasonality, especially in the solar random series. 
@@ -204,7 +207,9 @@ solar_ts_recent <- renewables_df %>%
   ts(start = c(year(start), month(start)), frequency = 12)
 
 solar_ts_recent_decomp <- decompose(solar_ts_recent, type = "additive")
-plot(solar_ts_recent_decomp)
+#plot(solar_ts_recent_decomp)
+# still see some non-randomness in the residuals
+autoplot(solar_ts_recent_decomp, main = "Additive Decomposition of Recent Solar Data")
 
 # wind time series post-2014
 wind_ts_recent <- renewables_df %>% 
@@ -213,7 +218,9 @@ wind_ts_recent <- renewables_df %>%
   ts(start = c(year(start), month(start)), frequency = 12)
 
 wind_ts_recent_decomp <- decompose(wind_ts_recent, type = "additive")
-plot(wind_ts_recent_decomp)
+#plot(wind_ts_recent_decomp)
+# don't see seasonal pattern in residual any more after removing earlier wind data
+autoplot(wind_ts_recent_decomp, main = "Additive Decomposition of Recent Wind Data")
 
 ```
 
