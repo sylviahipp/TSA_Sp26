@@ -51,7 +51,7 @@ summary(electricity_price)
 
 #Initial plot
 #With plot function
-plot(electricity_price$residential.cents.per.kilowatthour, type ="l")
+plot(electricity_price$residential.cents.per.kilowatthour, type ="l")  # data is in incorrect order
 
 #Note the time is reversed on this plot. Price should be increasing over time
 #Preparing the data - create date object and rename columns
