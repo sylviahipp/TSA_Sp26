@@ -52,12 +52,13 @@ summary(electricity_price)
 #Initial plot
 #With plot function
 plot(electricity_price$residential.cents.per.kilowatthour, type ="l")  # data is in incorrect order
+# recent data at top of data frame
 
 #Note the time is reversed on this plot. Price should be increasing over time
 #Preparing the data - create date object and rename columns
 electricity_price_processed <-
   electricity_price %>%
-  mutate( Month = my(Month) ) %>% 
+  mutate( Month = my(Month) ) %>%   # mutate to date object
   rename( All.sectors = all.sectors.cents.per.kilowatthour ) %>% 
   rename( Residential = residential.cents.per.kilowatthour ) %>% 
   rename( Commercial = commercial.cents.per.kilowatthour ) %>% 
@@ -74,7 +75,7 @@ plot(TS_Plot)
 #but lets fix it!
 electricity_price_processed <-
   electricity_price_processed %>% 
-  arrange(Month)
+  arrange(Month)    # arrange by month so that it's in correct order when making TS object
 
 ```
 
@@ -88,6 +89,7 @@ ts_electricity_price <- ts(electricity_price_processed[,2:(nvar+1)],
                                    month(electricity_price_processed$Month[1])),
                            frequency=12) 
 #note that we are only transforming columns with electricity price, not the date columns  
+# make sure there are no missing observations at start and end of df
 head(ts_electricity_price,15)
 tail(ts_electricity_price,15)
 
@@ -105,6 +107,12 @@ plot_grid(
                   main = "PACF Residential Electricity Price")
 )
 
+# Result: 
+# see slow decay of ACF --> suggests a trend, will need to remove before fitting ARIMA
+# ACF at lag 1 is very close to 1 --> may suggest stochastic trend
+# seasonal component is weaker but may exist
+# rapid decline of PACF, but may have seasonality with small spikes
+
 ```
 
 
@@ -115,7 +123,7 @@ The plots from the previous section show the data has a seasonal component. Sinc
 ```{r}
 #Using R decompose function
 decompose_residential_price <- decompose(ts_electricity_price[,"Residential"],"additive")
-plot(decompose_residential_price)
+plot(decompose_residential_price)  # residual does not seem to have any pattern, can move forward with additive
 
 
 ```
@@ -127,30 +135,32 @@ The ACF and PACF from the seasonal adjusted series will help you specify compone
 ```{r}
 
 #Creating non-seasonal residential price time series
-deseasonal_residential_price <- 
-  
+# seasadj() does the same thing
+#deseasonal_residential_price <- decompose_residential_price$x - decompose_residential_price$seasonal
+deseasonal_residential_price <- seasadj(decompose_residential_price)
 
 #Plotting original and deseasoned series
-autoplot()
-
+autoplot(ts_electricity_price[, "Residential"]) + 
+  autolayer(deseasonal_residential_price) + 
+  theme(legend.position = "bottom")
 
 
 #Comparing ACFs
 plot_grid(
-  autoplot(Acf(????, lag = 40, plot=FALSE), 
+  autoplot(Acf(ts_electricity_price[,"Residential"], lag = 40, plot=FALSE), 
                 main = "Orginal Residential Electricity Price"),
-  autoplot(Acf(????, lag = 40, plot=FALSE),  
-                  main = "Deseason Residential Electricity Price")
+  autoplot(Acf(deseasonal_residential_price, lag = 40, plot=FALSE),  
+                  main = "Deseason Residential Electricity Price")   # no longer see waves from seasonality
 )
 
 #Note seasonality is gone!
 
 #Comparing PACFs
 plot_grid(
-  autoplot(Pacf(????, lag = 40, plot=FALSE), 
+  autoplot(Pacf(ts_electricity_price[,"Residential"], lag = 40, plot=FALSE), 
                 main = "Orginal Residential Electricity Price"),
-  autoplot(Pacf(????, lag = 40, plot=FALSE),  
-                  main = "Deseason Residential Electricity Price")
+  autoplot(Pacf(deseasonal_residential_price, lag = 40, plot=FALSE),  
+                  main = "Deseason Residential Electricity Price")  # all spikes every 12 lags are gone
 )
 
 ```
@@ -164,34 +174,37 @@ Always check for stationarity before fitting ARIMA models. This will help specif
 ```{r}
 
 #Run ADF
+print(adf.test(deseasonal_residential_price))  # fail to reject null: the series has a unit root 
 
-
-#Lets difference the series to remove the trend.
+#Lets difference the series to remove the trend. (b/c we know it's a stochastic trend)
 #Difference the data at lag 1 and remove NA
-deseasonal_residential_price_diff <- 
+deseasonal_residential_price_diff <- diff(deseasonal_residential_price, lag=1)
 
 #Check autocorrelation plot again
-
+autoplot(deseasonal_residential_price_diff)  # appears to be a stationary process now
+print(adf.test(deseasonal_residential_price_diff))
 
 #Comparing ACFs
 plot_grid(
-  autoplot(Acf(????, lag = 40, plot=FALSE), 
+  autoplot(Acf(ts_electricity_price[,"Residential"], lag = 40, plot=FALSE), 
                 main = "Orginal Residential Electricity Price"),
-  autoplot(Acf(????, lag = 40, plot=FALSE),  
+  autoplot(Acf(deseasonal_residential_price, lag = 40, plot=FALSE),  
                   main = "Deseason Residential Electricity Price"),
-  autoplot(Acf(????, lag = 40, plot=FALSE),  
-                  main = "Diff/Deseason Residential Electricity Price")
+  autoplot(Acf(deseasonal_residential_price_diff, lag = 40, plot=FALSE),  # ACF now seems fully random (with some spikes)
+                  main = "Diff/Deseason Residential Electricity Price")   # Stochastic trend is gone (no more differencing)
 )
 
 #Comparing PACFs
 plot_grid(
-  autoplot(Pacf(????, lag = 40, plot=FALSE), 
+  autoplot(Pacf(ts_electricity_price[,"Residential"], lag = 40, plot=FALSE), 
                 main = "Orginal Residential Electricity Price"),
-  autoplot(Pacf(????, lag = 40, plot=FALSE),  
+  autoplot(Pacf(deseasonal_residential_price, lag = 40, plot=FALSE),  
                   main = "Deseason Residential Electricity Price"),
-  autoplot(Oacf(????, lag = 40, plot=FALSE),  
+  autoplot(Pacf(deseasonal_residential_price_diff, lag = 40, plot=FALSE),  # no longer see high PACF at lag 1
                   main = "Diff/Deseason Residential Electricity Price")
 )
+# ARIMA function can handle differencing, better to provide it with the deseasoned series (non-differenced) and set d=1 (?)
+# d represents the "I" -- differencing = 1 
 ```
 
 
@@ -209,26 +222,33 @@ Some important arguments for Arima() are:
 
 #Remember the order d=1 will perform the differencing, 
 #so lets try ARIMA(1,1,1) on the non-seasonal residential data before differencing
-Model_111 <- Arima()
+# we start with ARMA since the ACF / PACF after differencing both decay quickly 
+Model_111 <- Arima(deseasonal_residential_price, order = c(1, 1, 1), include.drift = TRUE)
 print(Model_111)
+checkresiduals(Model_111)   # residuals should look like a white noise; should be normally distributed w/ mean=0
 compare_aic <- data.frame(Model_111$aic)
 
 #Check residuals series, if white noise we got a good fit
 plot_grid(
   autoplot(Model_111$residuals),
-  autoplot(Acf(Model_111$residuals,lag.max=40, plot = FALSE),
-  Pacf(Model_111$residuals,lag.max=40),
+  autoplot(Acf(Model_111$residuals,lag.max=40, plot = FALSE)),
+  autoplot(Pacf(Model_111$residuals,lag.max=40))
 )
 
 #Now let's try ARIMA(0,1,1)
-
-
-
+Model_011 <- Arima(deseasonal_residential_price, order = c(0, 1, 1), include.drift = TRUE)
+print(Model_011)  # end up with just a moving average term
+checkresiduals(Model_011)   # residuals should look like a white noise; should be normally distributed w/ mean=0
 compare_aic <- data.frame(compare_aic,Model_011$aic)
+# Model_111 has better aic (lower) --> model got worse after removing AR term
 
+# try removing 
 
 #Now let's try ARIMA(2,1,1)
-
+Model_211 <- Arima(deseasonal_residential_price, order = c(2, 1, 1), include.drift = TRUE)
+print(Model_211)
+checkresiduals(Model_211)   # residuals should look like a white noise; should be normally distributed w/ mean=0
+compare_aic <- data.frame(compare_aic,Model_211$aic)
 
 
 
