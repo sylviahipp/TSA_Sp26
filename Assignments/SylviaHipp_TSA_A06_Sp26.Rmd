@@ -20,14 +20,11 @@ When you have completed the assignment, **Knit** the text and code into a single
 
 R packages needed for this assignment: "ggplot2", "forecast", "tseries" and "sarima". Install these packages, if you haven't done yet. Do not forget to load them before running your script, since they are NOT default packages.
 
-```{r}
+```{r message=FALSE}
 #Load/install required package here
-library(lubridate)
 library(ggplot2)
-library(forecast)  
-library(Kendall)
+library(forecast) 
 library(tseries)
-library(outliers)
 library(tidyverse)
 library(cowplot)
 library(sarima)
@@ -41,11 +38,11 @@ Describe the important characteristics of the sample autocorrelation function (A
 
 * AR(2)
 
-> Answer: The ACF plot of an AR(2) model will show exponential decay over time. The PACF plot will show rapid decay and have insignificant values after 2 lags, which is indicative of a 2nd order AR model.
+> Answer: The ACF plot of an AR(2) model will show exponential decay over time. The PACF plot will show a quick drop off and have insignificant values after 2 lags, which is indicative of a 2nd order AR model.
 
 * MA(1)
 
-> Answer: The ACF plot of an MA(2) model will show rapid decay and have insignificant values after 1 lag, which is indicative of the 1st order MA model. The PACF plot will show exponential decay over time. 
+> Answer: The ACF plot of an MA(2) model will have a quick drop off and have insignificant values after 1 lag, which is indicative of the 1st order MA model. The PACF plot will show exponential decay over time. 
 
 ## Q2
 
@@ -54,12 +51,14 @@ Recall that the non-seasonal ARIMA is described by three parameters ARIMA$(p,d,q
 (a) Consider three models: ARMA(1,0), ARMA(0,1) and ARMA(1,1) with parameters $\phi=0.6$ and $\theta= 0.9$. The $\phi$ refers to the AR coefficient and the $\theta$ refers to the MA coefficient. Use the `arima.sim()` function in R to generate $n=100$ observations from each of these three models. Then, using `autoplot()` plot the generated series in three separate graphs.
 
 ```{r}
+set.seed(0)  # set seed so my results are always the same when I knit
 arma_10 <- arima.sim(n=100, model=list(order=c(1,0,0), ar=0.6))
-arma_01 <- arima.sim(n=100, model=list(order=c(0,0,1), ma=0.9))
-arma_11 <- arima.sim(n=100, model=list(order=c(1,0,1), ar=0.6, ma=0.9))
-
 autoplot(arma_10) + labs(title = "ARMA(1,0)")
+
+arma_01 <- arima.sim(n=100, model=list(order=c(0,0,1), ma=0.9))
 autoplot(arma_01) + labs(title = "ARMA(0,1)")
+
+arma_11 <- arima.sim(n=100, model=list(order=c(1,0,1), ar=0.6, ma=0.9))
 autoplot(arma_11) + labs(title = "ARMA(1,1)")
 ```
 
@@ -88,9 +87,7 @@ plot_grid(
 
 (d) Look at the ACFs and PACFs. Imagine you had these plots for a data set and you were asked to identify the model, i.e., is it AR, MA or ARMA and the order of each component. Would you be able identify them correctly? Explain your answer.
 
-** ASK IN OFFICE HOURS**
-
-> Answer: I believe I would be able to identify each model. For the ARMA(1,0) there is exponential decay of the ACF and a sharp drop off after the first lag of the PACF. The opposit is true for ARMA(0,1) -- there is a sharp drop off after one lag of the ACF and exponential decay of the PACF. The ARMA(1,1) would be a bit more difficult. Both the ACF and PACF become insignficicant after about two lags, but there are a few lags that are very marginally significant. While I recognize this is rapid decay because I know its an ARMA model, I may have more trouble recognizing it without that information. You would not be able to determine the order of this model just looking at the ACF/PACF. 
+> Answer: It would be difficult to identify these models with such few observations, though the patterns are mostly as I'd expect. For the ARMA(1,0) there is exponential decay of the ACF and a sharp drop off after the first lag of the PACF, however the ACF has negative values after about 5 lags which isn't what I'd expect. For the ARMA(0,1), there is a sharp drop off after one lag of the ACF, which I'd expect. However, the PACF does not appear to have many significant values after the first lag, so it'd be difficult to identify this model with those results. The ARMA(1,1) is also difficult. The ACF drops off after the first term, while the PACF has about two significant lags before droping off. You would not be able to determine the order of this model just looking at the ACF/PACF.  
 
 (e) Compare the PACF values R computed with the values you provided for the lag 1 correlation coefficient, i.e., does $\phi=0.6$ match what you see on PACF for ARMA(1,0), and ARMA(1,1)? Should they match?
 
@@ -99,6 +96,7 @@ plot_grid(
 (f) Increase number of observations to $n=1000$ and repeat parts (b)-(e).
 
 ```{r}
+set.seed(0)  # set seed for reproducibility
 arma_10 <- arima.sim(n=1000, model=list(order=c(1,0,0), ar=0.6))
 arma_01 <- arima.sim(n=1000, model=list(order=c(0,0,1), ma=0.9))
 arma_11 <- arima.sim(n=1000, model=list(order=c(1,0,1), ar=0.6, ma=0.9))
@@ -122,8 +120,7 @@ plot_grid(
 )
 ```
 
-** ASK IN OFFICE HOURS**
-> Answer: Ask what ACF / PACF should look like for ARMA, my understanding was that it was sharp drop off for both PACF and ACF based on the slides / class, but that's not what I'm seeing here
+> Answer: The models are much easier to identify with more observations. For the ARMA(1,0) model, there clear is exponential decay of the ACF, while the PACF drops off completely after one lag. The opposite is true for the ARMA(0,1) model. The PACF is signficiant for the first 7 or so lags, while the ACF drops off completly after the first lag. The ARMA(1,1) is less clear to me. It appears to have exponential decay of both the PACF and ACF, so this suggests both the AR and MA components have an influence on the series. However, you would not be able to determine the order of the components from these results. Again, the value of the first lag of the PACF for both the ARMA(1,0) and ARMA(1,1) models is roughly 0.6.
 
 ## Q3
 
@@ -131,12 +128,10 @@ Consider the ARIMA model $y_t=0.7*y_{t-1}-0.25*y_{t-12}+a_t-0.1*a_{t-1}$
 
 (a) Identify the model using the notation ARIMA$(p,d,q)(P,D,Q)_ s$, i.e., identify the integers $p,d,q,P,D,Q,s$ (if possible) from the equation.
 
-** ASK IN OFFICE HOURS** --> are we able to tell anything about the differencing? Also isn't there supposed to be a constant term?
-> Answer: ARIMA(1, 0, 1)(1, 0, 0). I assume that this model is on a stationary time series and that d=0, though it's not clear from the equation.
+> Answer: ARIMA(1, d, 1)(1, D, 0)[12]. You are not able to determine whether the series requires differencing from this equation alone. 
 
 (b) Also from the equation what are the values of the parameters, i.e., model coefficients.
 
-** CONFIRM PHI IS NEGATIVE FOR SAR**
 > Answer: phi for the first order AR is 0.7, theta for the first order MA is 0.1, and phi for the first order SAR is -0.25.
 
 ## Q4
@@ -145,21 +140,22 @@ Simulate a seasonal ARIMA$(0, 1)\times(1, 0)_{12}$ model with $\phi =0 .8$ and $
 series using `autoplot()`. Does it look seasonal?
 
 ```{r}
-# why is this not automatically a time series? 
-sarima_0110 <- sim_sarima(n=1000, 
-                          model=list(nseasons=12, ma=0.5, sar=0.8)) %>% 
-  ts(frequency = 12)  # ASK IN OFFICE HOURS
+set.seed(0)  # set seed for reproducibility
+sarima_0110 <- sim_sarima(n=1200, model = list(nseasons=12, ma=0.5, sar=0.8)) %>% 
+  ts(frequency = 12)
 
 autoplot(sarima_0110) + 
-  scale_x_continuous(breaks=seq(0, 1000, by = 12))
+  scale_x_continuous(breaks=seq(0, 101, by = 12))
 ```
+> Answer: There appears to be some seasonal fluctuation but the seasonality is not strong.  
 
 ## Q5
 
 Plot ACF and PACF of the simulated series in Q4. Comment if the plots are well representing the model you simulated, i.e., would you be able to identify the order of both non-seasonal and seasonal components from the plots? Explain.
 
 ```{r}
-Acf(sarima_0110)
-Pacf(sarima_0110)
-
+Acf(sarima_0110, lag.max=60)
+Pacf(sarima_0110, lag.max=60)
 ```
+
+> Answer: I believe I would be able to identify the seasonal components from the plots. The ACF has clear seasonality and an exponential decay of seasonal lags, which is consistent with the seasonal AR component. The PACF has one strong spike at lag 12, which confirms that the order of the SAR is 1. It would be more difficult to identify the non-seasonal components from the plots. I may be able to infer that AR=0, as the ACF is not consistent with a strong AR component because most lags are insignificant with the exception of the seasonal lags. I would have a hard time recognizing the first order MA component, although you do see initially negative values in the ACF and a slow decay of PACF values, which are both consistent with MA. The small spike at lag 1 of the ACF may confirm the MA order of 1.  
