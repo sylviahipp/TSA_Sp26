@@ -289,7 +289,7 @@ plot_grid(
 )
 #Now let's try ARIMA(2,1,2)
 Model_212 <- Arima(deseasonal_residential_price,order=c(2,1,2),include.drift=TRUE)
-print(Model_212)
+print(Model_212)     # coefficients are all really high
 compare_aic <- data.frame(compare_aic,Model_212$aic)
 checkresiduals(Model_212)
 
@@ -335,10 +335,10 @@ print(compare_aic)
 If you don't differenciate the series, i.e., if you input the non-stationarity series, you should specify d = 1. Otherwise, Arima will be fitting a model to a non-stationary series. Note the difference between AIC for Model_101 and Model_101_diff
 
 ```{r}
-
-#Model_101 <- Arima(deseasonal_residential_price,order=c(1,0,1))
-#print(Model_101)
-#compare_aic <- data.frame(compare_aic,Model_101$aic)
+## ERROR: can't run this because d = 0 and passed a non-stationary series
+# Model_101 <- Arima(deseasonal_residential_price,order=c(1,0,1))
+# print(Model_101)
+# compare_aic <- data.frame(compare_aic,Model_101$aic)
 
 Model_101_diff=Arima(deseasonal_residential_price_diff,order=c(1,0,1))
 print(Model_101_diff)
