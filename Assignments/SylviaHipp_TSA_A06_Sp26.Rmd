@@ -70,7 +70,7 @@ plot_grid(
   ggAcf(arma_10) + labs(title="ARMA(1,0)"), 
   ggAcf(arma_01) + labs(title="ARMA(0,1)"), 
   ggAcf(arma_11) + labs(title="ARMA(1,1)"), 
-  nrow = 3
+  ncol = 3
 )
 ```
 
@@ -81,7 +81,7 @@ plot_grid(
   ggPacf(arma_10) + labs(title="ARMA(1,0)"), 
   ggPacf(arma_01) + labs(title="ARMA(0,1)"), 
   ggPacf(arma_11) + labs(title="ARMA(1,1)"), 
-  nrow = 3
+  ncol = 3
 )
 ```
 
@@ -90,6 +90,15 @@ plot_grid(
 > Answer: It would be difficult to identify these models with such few observations, though the patterns are mostly as I'd expect. For the ARMA(1,0) there is exponential decay of the ACF and a sharp drop off after the first lag of the PACF, however the ACF has negative values after about 5 lags which isn't what I'd expect. For the ARMA(0,1), there is a sharp drop off after one lag of the ACF, which I'd expect. However, the PACF does not appear to have many significant values after the first lag, so it'd be difficult to identify this model with those results. The ARMA(1,1) is also difficult. The ACF drops off after the first term, while the PACF has about two significant lags before droping off. You would not be able to determine the order of this model just looking at the ACF/PACF.  
 
 (e) Compare the PACF values R computed with the values you provided for the lag 1 correlation coefficient, i.e., does $\phi=0.6$ match what you see on PACF for ARMA(1,0), and ARMA(1,1)? Should they match?
+
+```{r}
+# ARMA(1,0)
+print(c("Model 1", pacf(arma_10, lag.max=1, plot=FALSE)$acf))
+
+# ARMA(1,1)
+print(c("Model 3", pacf(arma_11, lag.max=1, plot=FALSE)$acf))  # can't read coefficient from the ARMA model
+```
+
 
 > Answer: Yes, the value of the PACF of the first lag for both models appears to be around 0.6.
 
@@ -109,15 +118,21 @@ plot_grid(
   ggAcf(arma_10) + labs(title="ARMA(1,0)"), 
   ggAcf(arma_01) + labs(title="ARMA(0,1)"), 
   ggAcf(arma_11) + labs(title="ARMA(1,1)"), 
-  nrow = 3
+  ncol = 3
 )
 
 plot_grid(
   ggPacf(arma_10) + labs(title="ARMA(1,0)"), 
   ggPacf(arma_01) + labs(title="ARMA(0,1)"), 
   ggPacf(arma_11) + labs(title="ARMA(1,1)"), 
-  nrow = 3
+  ncol = 3
 )
+
+# ARMA(1,0)
+print(c("Model 1", pacf(arma_10, lag.max=1, plot=FALSE)$acf))  # close to 0.6
+
+# ARMA(1,1)
+print(c("Model 3", pacf(arma_11, lag.max=1, plot=FALSE)$acf))  # can't read the coefficient from ARMA model
 ```
 
 > Answer: The models are much easier to identify with more observations. For the ARMA(1,0) model, there clear is exponential decay of the ACF, while the PACF drops off completely after one lag. The opposite is true for the ARMA(0,1) model. The PACF is signficiant for the first 7 or so lags, while the ACF drops off completly after the first lag. The ARMA(1,1) is less clear to me. It appears to have exponential decay of both the PACF and ACF, so this suggests both the AR and MA components have an influence on the series. However, you would not be able to determine the order of the components from these results. Again, the value of the first lag of the PACF for both the ARMA(1,0) and ARMA(1,1) models is roughly 0.6.
@@ -128,7 +143,7 @@ Consider the ARIMA model $y_t=0.7*y_{t-1}-0.25*y_{t-12}+a_t-0.1*a_{t-1}$
 
 (a) Identify the model using the notation ARIMA$(p,d,q)(P,D,Q)_ s$, i.e., identify the integers $p,d,q,P,D,Q,s$ (if possible) from the equation.
 
-> Answer: ARIMA(1, d, 1)(1, D, 0)[12]. You are not able to determine whether the series requires differencing from this equation alone. 
+> Answer: ARIMA(1, d, 1)(1, D, 0)[12]. You are not able to determine whether the series requires differencing from this equation alone. (you do have a constant, which means it could be from a 0-mean process or that the series has been differenced)
 
 (b) Also from the equation what are the values of the parameters, i.e., model coefficients.
 
@@ -147,6 +162,7 @@ sarima_0110 <- sim_sarima(n=1200, model = list(nseasons=12, ma=0.5, sar=0.8)) %>
 autoplot(sarima_0110) + 
   scale_x_continuous(breaks=seq(0, 101, by = 12))
 ```
+
 > Answer: There appears to be some seasonal fluctuation but the seasonality is not strong.  
 
 ## Q5
