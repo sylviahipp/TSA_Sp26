@@ -4,6 +4,8 @@ subtitle: "Assignment 7 - Due date 03/06/26"
 author: "Sylvia Hipp"
 output: pdf_document
 geometry: margin=2.54cm
+editor_options: 
+  chunk_output_type: console
 ---
 
 ## Directions
@@ -20,14 +22,45 @@ Packages needed for this assignment: "forecast","tseries". Do not forget to load
 
 ## Set up
 
-```{r}
+```{r message=FALSE}
 #Load/install required package here
 library(tidyverse)
+library(forecast)
+library(tseries)
+library(here)
+library(cowplot)
+library(Kendall)
 ```
 
 ## Importing and processing the data set
 
 Consider the data from the file "Net_generation_United_States_all_sectors_monthly.csv". The data corresponds to the monthly net generation from January 2001 to December 2020 by source and is provided by the US Energy Information and Administration. **You will work with the natural gas column only**.
+
+```{r}
+# import raw data
+net_gen_raw <- read.csv(here("Data/Net_generation_United_States_all_sectors_monthly.csv"), 
+                        skip = 4) %>% 
+  janitor::clean_names()               # clean up names
+
+# trim dataset to just natural gas generation
+net_gen_ng <- net_gen_raw %>% 
+  tibble() %>% 
+  select(month, natural_gas_thousand_megawatthours) %>% 
+  rename("ng_thousand_mwh" = natural_gas_thousand_megawatthours) %>% 
+  mutate(month = my(month)) %>%    # convert month to date 
+  arrange(month)                   # make sure data is in the correct order
+
+# make sure there are no missing observations
+first <- first(net_gen_ng$month)
+last <- last(net_gen_ng$month)
+
+# join sequence of all months in date range
+net_gen_ng <- full_join(net_gen_ng, 
+                        tibble("month" = seq.Date(first, last, by="month")), 
+                        by = "month")
+
+net_gen_ng %>% filter(is.na(ng_thousand_mwh))  # no missing data
+```
 
 
 ### Q1
@@ -35,6 +68,19 @@ Consider the data from the file "Net_generation_United_States_all_sectors_monthl
 Import the csv file and create a time series object for natural gas. Make you sure you specify the **start=** and **frequency=** arguments. Plot the time series over time, ACF and PACF.
 
 ```{r}
+ts_gen_ng <- ts(net_gen_ng$ng_thousand_mwh, 
+                start = c(year(first), month(first)), 
+                frequency = 12)
+
+# time series plot
+autoplot(ts_gen_ng) + 
+  theme_classic() +
+  labs(x = "Month", y = "Natural Gas Generation (000s MWh)", 
+       title = "Monthly Natural Gas Generation (2001–2020)")
+
+# ACF and PACF
+plot_grid(ggAcf(ts_gen_ng, lag.max = 40) + labs(title = "NG ACF"), 
+          ggPacf(ts_gen_ng, lag.max = 40) + labs(title = "NG PACF"))
 
 ```
 
@@ -43,8 +89,23 @@ Import the csv file and create a time series object for natural gas. Make you su
 Using the $decompose()$ and the $seasadj()$ functions create a series without the seasonal component, i.e., a deseasonalized natural gas series. Plot the deseasonalized series over time and corresponding ACF and PACF. Compare with the plots obtained in Q1.
 
 ```{r}
+gen_ng_decomp <- decompose(ts_gen_ng)
+#plot(gen_ng_decomp)
 
+ts_gen_ng_deseason <- seasadj(gen_ng_decomp)
+
+# plot deseasoned time series
+autoplot(ts_gen_ng_deseason) + 
+  theme_classic() +
+  labs(x = "Month", y = "Natural Gas Generation (000s MWh)", 
+       title = "Deseasoned Monthly Natural Gas Generation (2001–2020)")
+
+# plot ACF and PACF
+plot_grid(ggAcf(ts_gen_ng_deseason, lag.max = 40) + labs(title = "Deseasoned NG ACF"), 
+          ggPacf(ts_gen_ng_deseason, lag.max = 40) + labs(title = "Deseasoned NG PACF"))
 ```
+
+> Comparing the time series to question 1, we no longer see clear seasonal fluctuations and movement in the series appears much more random. There is still a clear upwards trend. We no longer see the spikes every 12 lags in the ACF and PACF as we did for the original timeseries. The ACF still shows slow decay (strong autoregressive component), while the PACF shows drop off after the first lag. Both the first lag of the ACF and PACF are near 1, which suggests a unit root so we may need to difference the series. 
 
 ## Modeling the seasonally adjusted (i.e., the deseasonalized series)
 
@@ -53,15 +114,49 @@ Using the $decompose()$ and the $seasadj()$ functions create a series without th
 Run the ADF test and Mann Kendall test on the deseasonalized data from Q2. Report and explain the results.
 
 ```{r}
+# Mann-Kendall Test: Null Hypothesis = series is stationary (no trend)
+mk_test <- MannKendall(ts_gen_ng_deseason)
+summary(mk_test)
 
+# ADF Test: Null Hypothesis = a unit root is present
+adf_test <- adf.test(ts_gen_ng_deseason)
+adf_test
 ```
+
+> The Mann Kendall test on the deseasoned data found that there is a significant (p < 0.001) trend in the data. The ADF test found that the unit root is not present (p < 0.01). Based on these test results, we can conclude that there is a stationary trend present in the data.
 
 ### Q4
 
 Using the plots from Q2 and test results from Q3 identify the ARIMA model parameters $p,d$ and $q$. Note that in this case because you removed the seasonal component prior to identifying the model you don't need to worry about seasonal component. Clearly state your criteria and any additional function in R you might use. DO NOT use the $auto.arima()$ function. You will be evaluated on ability to understand the ACF/PACF plots and interpret the test results.
 
-```{r}
+> There is a trend present in the data, so we should detrend through differencing and look at the ACF/PACF plots of the stationary data to determine the model parameters.
 
+**QUESTION**: since the trend is stationary, would it be okay to just remove the linear trend? or should we just difference in our ARIMA so that we don't have to remove it manually after fitting the model
+
+--> based on the PACF / ACF of the differenced series, is d=1 overdifferencing the series? but it's not stationary
+
+```{r}
+# detrended and deseasoned time series
+ts_gen_ng_detrend_deseason <- diff(ts_gen_ng_deseason, differences = 1)
+#ts_gen_ng_detrend_deseason <- gen_ng_decomp$random
+
+autoplot(ts_gen_ng, series = "Original Series") +
+  autolayer(ts_gen_ng_deseason, series = "Deseasoned Series") + 
+  autolayer(ts_gen_ng_detrend_deseason, series = "Detrended and Deseasoned Series") +
+  theme_classic() +
+  theme(legend.position = "bottom")
+
+# Compare ACF
+plot_grid(ggAcf(ts_gen_ng, lag.max = 40) + labs(title = "Original NG ACF\n"), 
+          ggAcf(ts_gen_ng_deseason, lag.max = 40) + labs(title = "Deseasoned NG ACF\n"),
+          ggAcf(ts_gen_ng_detrend_deseason, lag.max = 40) + labs(title = "Deseasoned/Detrended\nNG ACF"), 
+          ncol = 3)
+
+# Compare PACF
+plot_grid(ggPacf(ts_gen_ng, lag.max = 40) + labs(title = "Original NG PACF\n"), 
+          ggPacf(ts_gen_ng_deseason, lag.max = 40) + labs(title = "Deseasoned NG PACF\n"),
+          ggPacf(ts_gen_ng_detrend_deseason, lag.max = 40) + labs(title = "Deseasoned/Detrended\nNG PACF"), 
+          ncol = 3)
 ```
 
 ### Q5
