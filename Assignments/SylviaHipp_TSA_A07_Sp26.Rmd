@@ -30,6 +30,7 @@ library(tseries)
 library(here)
 library(cowplot)
 library(Kendall)
+library(glue)
 ```
 
 ## Importing and processing the data set
@@ -105,7 +106,7 @@ plot_grid(ggAcf(ts_gen_ng_deseason, lag.max = 40) + labs(title = "Deseasoned NG 
           ggPacf(ts_gen_ng_deseason, lag.max = 40) + labs(title = "Deseasoned NG PACF"))
 ```
 
-> Comparing the time series to question 1, we no longer see clear seasonal fluctuations and movement in the series appears much more random. There is still a clear upwards trend. We no longer see the spikes every 12 lags in the ACF and PACF as we did for the original timeseries. The ACF still shows slow decay (strong autoregressive component), while the PACF shows drop off after the first lag. Both the first lag of the ACF and PACF are near 1, which suggests a unit root so we may need to difference the series. 
+> Comparing the time series to question 1, we no longer see clear seasonal fluctuations and movement in the series appears much more random. There is still a clear upwards trend. We no longer see the spikes every 12 lags in the ACF and PACF as we did for the original timeseries. The ACF still shows slow decay (strong autoregressive component), while the PACF shows drop off after the first lag. Both the first lag of the ACF and PACF are near 1, which suggests a unit root so we may need to difference the series. The ACF appears to still have a slight seasonality.
 
 ## Modeling the seasonally adjusted (i.e., the deseasonalized series)
 
@@ -115,12 +116,12 @@ Run the ADF test and Mann Kendall test on the deseasonalized data from Q2. Repor
 
 ```{r}
 # Mann-Kendall Test: Null Hypothesis = series is stationary (no trend)
-mk_test <- MannKendall(ts_gen_ng_deseason)
-summary(mk_test)
+mk_test_deseas <- MannKendall(ts_gen_ng_deseason)
+summary(mk_test_deseas)
 
 # ADF Test: Null Hypothesis = a unit root is present
-adf_test <- adf.test(ts_gen_ng_deseason)
-adf_test
+adf_test_deseas <- adf.test(ts_gen_ng_deseason)
+adf_test_deseas
 ```
 
 > The Mann Kendall test on the deseasoned data found that there is a significant (p < 0.001) trend in the data. The ADF test found that the unit root is not present (p < 0.01). Based on these test results, we can conclude that there is a stationary trend present in the data.
@@ -131,14 +132,12 @@ Using the plots from Q2 and test results from Q3 identify the ARIMA model parame
 
 > There is a trend present in the data, so we should detrend through differencing and look at the ACF/PACF plots of the stationary data to determine the model parameters.
 
-**QUESTION**: since the trend is stationary, would it be okay to just remove the linear trend? or should we just difference in our ARIMA so that we don't have to remove it manually after fitting the model
-
---> based on the PACF / ACF of the differenced series, is d=1 overdifferencing the series? but it's not stationary
-
 ```{r}
+ndiffs(ts_gen_ng_deseason)  # check number of differences required
+#nsdiffs(ts_gen_ng_deseason)
+
 # detrended and deseasoned time series
 ts_gen_ng_detrend_deseason <- diff(ts_gen_ng_deseason, differences = 1)
-#ts_gen_ng_detrend_deseason <- gen_ng_decomp$random
 
 autoplot(ts_gen_ng, series = "Original Series") +
   autolayer(ts_gen_ng_deseason, series = "Deseasoned Series") + 
@@ -147,29 +146,54 @@ autoplot(ts_gen_ng, series = "Original Series") +
   theme(legend.position = "bottom")
 
 # Compare ACF
-plot_grid(ggAcf(ts_gen_ng, lag.max = 40) + labs(title = "Original NG ACF\n"), 
-          ggAcf(ts_gen_ng_deseason, lag.max = 40) + labs(title = "Deseasoned NG ACF\n"),
-          ggAcf(ts_gen_ng_detrend_deseason, lag.max = 40) + labs(title = "Deseasoned/Detrended\nNG ACF"), 
+plot_grid(ggAcf(ts_gen_ng, lag.max = 40) + 
+            labs(title = "Original NG ACF\n"), 
+          ggAcf(ts_gen_ng_deseason, lag.max = 40) + 
+            labs(title = "Deseasoned NG ACF\n"),
+          ggAcf(ts_gen_ng_detrend_deseason, lag.max = 40) + 
+            labs(title = "Deseasoned/Detrended\nNG ACF"), 
           ncol = 3)
 
 # Compare PACF
-plot_grid(ggPacf(ts_gen_ng, lag.max = 40) + labs(title = "Original NG PACF\n"), 
-          ggPacf(ts_gen_ng_deseason, lag.max = 40) + labs(title = "Deseasoned NG PACF\n"),
-          ggPacf(ts_gen_ng_detrend_deseason, lag.max = 40) + labs(title = "Deseasoned/Detrended\nNG PACF"), 
+plot_grid(ggPacf(ts_gen_ng, lag.max = 40) + 
+            labs(title = "Original NG PACF\n"), 
+          ggPacf(ts_gen_ng_deseason, lag.max = 40) + 
+            labs(title = "Deseasoned NG PACF\n"),
+          ggPacf(ts_gen_ng_detrend_deseason, lag.max = 40) + 
+            labs(title = "Deseasoned/Detrended\nNG PACF"), 
           ncol = 3)
 ```
+
+> I used the ndiffs() function to confirm that the deseasoned series needed to be differenced once to be stationary, which is consistent with my findings from the Mann-Kendall and ADF tests. I then plotted the ACF and PACF of the deseasoned and differenced series. The ACF looks like there is an AR component present due to the exponential decay. The PACF no longer has an immediate drop off and there are a few significant lags, which may suggest the presence of an MA component as well. For this reason, I believe that this model is an ARIMA(1,1,1).  
 
 ### Q5
 
 Use `Arima()` from package "forecast" to fit an ARIMA model to your series considering the order estimated in Q4. You should allow constants in the model, i.e., `include.mean = TRUE` or `include.drift=TRUE`. **Print the coefficients** in your report. Hint: use the `cat()` or `print()` function to print.
 
 ```{r}
+# use deaseasoned time series because the ARIMA will cover the differencing 
+model_111 <- Arima(ts_gen_ng_deseason, order = c(1,1,1), 
+                   include.drift = TRUE)
 
+cat("AR1:", model_111$coef[["ar1"]], 
+    "\nMA1:", model_111$coef[["ma1"]], 
+    "\nDrift:", model_111$coef[["drift"]])
 ```
 
 ### Q6
 
 Now plot the residuals of the ARIMA fit from Q5 along with residuals ACF on the same window. You may use the $checkresiduals()$ function to get the plots. Do the residual series look like a white noise series? Why?
+
+```{r}
+# plot_grid(
+#   autoplot(model_111$residuals), 
+#   ggAcf(model_111$residuals, lag.max = 40)
+# )
+checkresiduals(model_111)    # check residuals
+
+```
+
+> There are a couple of marginally significant lags of the ACF which may suggest that the residuals are not a perfect white noise series. It also looks like some of the significant ACF lags are evenly spaced which may suggest the presence of some seasonal stochastic behavior that is not being included in the model when we are treating the seasonal trend as deterministic. 
 
 ## Modeling the original series (with seasonality)
 
@@ -177,8 +201,60 @@ Now plot the residuals of the ARIMA fit from Q5 along with residuals ACF on the 
 
 Repeat Q3-Q6 for the original series (the complete series that has the seasonal component). Note that when you model the seasonal series, you need to specify the seasonal part of the ARIMA model as well, i.e., $P$, $D$ and $Q$.
 
+**Step 1**: run Mann-Kendall and ADF tests to check for stationarity
 ```{r}
+mk_test <- MannKendall(ts_gen_ng)
+summary(mk_test)     # p < 0.001, conclude that the series is not stationary (there is a significant trend)
 
+adf_test <- adf.test(ts_gen_ng)
+adf_test             # p < 0.01, conclude that there is not a significant unit root
+
+# check for number of differences required
+ndiffs(ts_gen_ng)    # d = 1
+nsdiffs(ts_gen_ng)   # D = 1
+```
+
+**Step 2**: difference the series and check ACF and PACF 
+```{r}
+# differencing
+ts_gen_ng_differenced <- diff(ts_gen_ng, differences = 1)
+
+# seasonal differencing
+ts_gen_ng_deseason_differenced <- diff(ts_gen_ng_differenced, lag=12, differences = 1)
+
+# Compare ACF and PACF
+plot_grid(ggAcf(ts_gen_ng, lag.max = 40) + labs(title = "Original"), 
+          ggAcf(ts_gen_ng_differenced, lag.max = 40) + labs(title = "Differenced"), 
+          ggAcf(ts_gen_ng_deseason_differenced, lag.max = 40) + labs(title = "Differenced and Deseasoned"), 
+          ncol = 3)
+
+plot_grid(ggPacf(ts_gen_ng, lag.max = 40) + labs(title = "Original"), 
+          ggPacf(ts_gen_ng_differenced, lag.max = 40) + labs(title = "Differenced"), 
+          ggPacf(ts_gen_ng_deseason_differenced, lag.max = 40) + labs(title = "Differenced and Deseasoned"), 
+          ncol = 3)
+```
+> Note: The ACF is significant at the first seasonal lag followed by a sharp decline. The seasonal lags of the PACF show an exponential decline. This suggests that there is a seasonal MA component of the first order. The non-seasonal parameters are not as clear from the ACF/PACF. The ACF has two significant lags followed by a gradual decline, while the PACF shows an exponential decline of the non-seasonal lags. Because the ACF does not show a sharp drop off, I am going to try an ARIMA(1,1,1)(0,1,1)[12].
+
+**Step 3**: Fit the ARIMA model based on parameters in Step 2
+```{r}
+# don't include drift because the series has been differenced twice
+model_111_011 <- Arima(ts_gen_ng, 
+                       order = c(1,1,1), 
+                       seasonal = c(0,1,1))
+
+cat("AR1:", model_111_011$coef[["ar1"]], 
+    "\nMA1:", model_111_011$coef[["ma1"]], 
+    "\nSMA1:", model_111_011$coef[["sma1"]])
+```
+
+**Step 4**: Plot Residuals
+```{r}
+plot_grid(
+  autoplot(model_111_011$residuals),
+  autoplot(Acf(model_111_011$residuals,lag.max=40,plot=FALSE),series="Residuals"),
+  autoplot(Pacf(model_111_011$residuals,lag.max=40,plot=FALSE),series="Residuals"),
+  nrow=1,ncol=3
+)
 ```
 
 
@@ -187,9 +263,10 @@ Repeat Q3-Q6 for the original series (the complete series that has the seasonal 
 Compare the residual series for Q7 and Q6. Can you tell which ARIMA model is better representing the Natural Gas Series? Is that a fair comparison? Explain your response.
 
 ```{r}
+checkresiduals(model_111)
 
 ```
-
+> Both residual series are not perfect white noise series as the ACF of both series contain some significant lags. However, the model that includes the seasonal component is an improvement. Compared to the model that treats the seasonal component as deterministic, there are is no longer a seasonal pattern to the ACF. 
 
 ## Checking your model with the auto.arima()
 
@@ -200,15 +277,19 @@ Compare the residual series for Q7 and Q6. Can you tell which ARIMA model is bet
 Use the $auto.arima()$ command on the **deseasonalized series** to let R choose the model parameter for you. What's the order of the best ARIMA model? Does it match what you specified in Q4?
 
 ```{r}
+auto_deseas_model <- auto.arima(ts_gen_ng_deseason, 
+                                max.P = 0, max.D = 0, max.Q = 0)
+auto_deseas_model
 
 ```
-
+> For the deseasonalized series, auto.arima() chose an ARIMA(1,1,1) model with drift. This is the same as what I'd specified in Q4. 
 
 ### Q10
 
 Use the $auto.arima()$ command on the **original series** to let R choose the model parameters for you. Does it match what you specified in Q7?
 
 ```{r}
-
+auto_seas_model <- auto.arima(ts_gen_ng)
+auto_seas_model
 ```
-
+> Interesting that the auto model only required differencing of the seasonal component. 
