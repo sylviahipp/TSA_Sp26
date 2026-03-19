@@ -75,10 +75,10 @@ Many of the functions we will use require a time series object. You can transfor
 
 ```{r}
 #Keep 12 months out of the analysis for forecast accuracy checking
-n_for <- 12
+n_for <- 12    # set forecasting window
 
 ts_electricity_price <- ts(
-  electricity_price_processed[1:(nobs-n_for),2:(nvar+1)],
+  electricity_price_processed[1:(nobs-n_for),2:(nvar+1)],   # drop last obs. in forecasting window
   start=c(year(electricity_price_processed$Month[1]),month(electricity_price_processed$Month[1])),
   frequency=12) 
 
@@ -121,25 +121,36 @@ On "M7_Intro_Forecasting.Rmd" we tried several models for both seasonal and dese
 ### Model 1: Arithmetic mean
 
 ```{r}
+# meanf = arithmetic mean model
+# h = number of periods for forecasting
 MEAN_seas <- meanf(y = ts_electricity_price[,"All.sectors"], h = 12)
-checkresiduals(MEAN_seas)
+summary(MEAN_seas)     # shows forecast for the last year of the data (forecasted period)
+checkresiduals(MEAN_seas)  # residuals relative to actual values
+
+# Ljung Box: 
+# H0: the residuals are independent
+# p < 0.001, reject the null hypothesis
 ```
 
 > Comments: Note a clear trend on residuals series, showing that the mean is not a good to model the trend component. And aside from trend the seasonal component is also not being modeled.
 
 ### Model 2: Seasonal naive
+Seasonal Naive repeats observations from the previous observation of the same season (i.e., month)
 
 ```{r}
 SNAIVE_seas <- snaive(ts_electricity_price[,"All.sectors"], h=12)
+summary(SNAIVE_seas)  # see some seasonal variation
 checkresiduals(SNAIVE_seas)
 ```
 
 > Comments: The residuals for the seasonal naive don't show any seasonal patterns. Recall the model repeats the observation that happen in a previous seasonal lag (in this case one year ago). The residuals series show a strong autoregressive component which is not desired.
 
 ### Model 3: SARIMA
+Note: SARIMA must fit to the model, but doesn't forecast
+need to call forecast separately
 ```{r}
 SARIMA_autofit <- auto.arima(ts_electricity_price[,"All.sectors"])
-checkresiduals(SARIMA_autofit)
+checkresiduals(SARIMA_autofit)   # ACF shown is the ACF of the residuals 
 ```
 
 > Comments: This is by far the best fit. Notice the residual series seems to be random and ACF shows no significant self correlation.
@@ -154,6 +165,12 @@ We are done with backward-looking assessment. SARIMA seems to be a good fit for 
 The function accuracy() will return performance measures. It takes the main arguments:
 
 **object** object of class forecast, or numerical values containing forecasts. **x** numerical vector containing observed values (optional).
+
+```{r}
+print(class(MEAN_seas))
+print(class(SARIMA_autofit))
+```
+
 
 If **x** is not provided the function will return performance measures for trainign set, i.e., based on historical data it will compare observed and fitted values.
 
@@ -176,8 +193,11 @@ $MAPE = \sum|Actual - Forecast|/Actual/n*100$
 ### Checking accuracy of the three models
 
 ```{r}
+# last 12 observations = the testing window
 observed <- electricity_price_processed[(nobs-n_for+1):nobs, "All.sectors"]
+
 #Model 1: Arithmetic mean
+# for this model type, $mean is the point forecast (has 12 observations)
 MEAN_scores <- accuracy(MEAN_seas$mean,observed)  #store the performance metrics
 plot(MEAN_seas)  #plot forecasts
 
@@ -187,7 +207,8 @@ plot(SNAIVE_seas)
 
 # Model 3:  SARIMA 
 #remember auto.arima does not call the forecast() internally so we need one more step
-SARIMA_for <- forecast(SARIMA_autofit,h=12)
+SARIMA_for <- forecast(SARIMA_autofit,h=12)  # returns object of class forecast
+class(SARIMA_for)
 SARIMA_scores <- accuracy(SARIMA_for$mean,observed)
 plot(SARIMA_for)
 
@@ -225,7 +246,23 @@ kbl(seas_scores,
 Create a code that plots all forecasted values and observed values together.
 
 ```{r}
+# what to show observed about AND the test period 
 
+# need to create time series object with all observations up to 2025
+ts_observed <- ts(
+  electricity_price_processed[, "All.sectors"], 
+  start = c(year(first(electricity_price_processed$Month)), 
+            month(first(electricity_price_processed$Month))), 
+  frequency = 12)
+
+autoplot(ts_observed) + 
+  autolayer(SARIMA_for$mean, series = "SARIMA") +
+  autolayer(MEAN_seas$mean, series = "Mean") + 
+  autolayer(SNAIVE_seas$mean, series = "Seasonal Naive") + 
+  theme_classic() + 
+  theme(legend.position = "bottom") + 
+  labs(y = "Forecasted Electricity Price (All Sectors)", 
+       color = "Forecast Model") 
 
 ```
 
