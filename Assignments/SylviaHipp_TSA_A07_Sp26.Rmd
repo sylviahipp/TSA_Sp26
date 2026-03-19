@@ -292,4 +292,4 @@ Use the $auto.arima()$ command on the **original series** to let R choose the mo
 auto_seas_model <- auto.arima(ts_gen_ng)
 auto_seas_model
 ```
-> Interesting that the auto model only required differencing of the seasonal component. 
+> For the seasonal series, auto.arima() chose an ARIMA(1,0,0)(0,1,1)[12]. This was different than my model in that I also included a non-seasonal AR component. The auto model also did not difference the non-seasonal series, which is unexpected considering there is such a strong trend to the data. 
